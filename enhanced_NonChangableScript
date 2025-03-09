@@ -1,0 +1,38 @@
+# script-integrity-check.yml로 저장
+
+name: Verify Script Integrity
+
+on:
+  push:
+    paths:
+      - 'script.js'  # script.js 파일이 변경될 경우만 실행
+  pull_request:
+    paths:
+      - 'script.js'  # PR에서 script.js 변경 감지
+
+jobs:
+  check-integrity:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Compute Hash
+        id: compute_hash
+        run: echo "FILE_HASH=$(sha256sum script.js | awk '{print $1}')" >> $GITHUB_ENV
+
+      - name: Verify Hash
+        run: |
+          EXPECTED_HASH="원래_스크립트의_SHA256_해시값" # 여기에 올바른 SHA256 해시값을 입력
+          if [[ "$FILE_HASH" != "$EXPECTED_HASH" ]]; then
+            echo "❌ script.js 파일이 무단으로 변경되었습니다!"
+            exit 1
+          fi
+
+      - name: Revert Changes if Invalid
+        if: failure()
+        run: |
+          git checkout HEAD~1 script.js
+          git commit -m "🔄 script.js 자동 복원" --no-verify
+          git push origin HEAD --force
